@@ -1,0 +1,33 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg:        #FDFAF6;
+  --color-bg-alt:    #EEEAE3;
+  --color-bg-dark:   #1C1C1E;
+  --color-accent:    #F4A261;
+  --color-accent-2:  #E76F51;
+  --color-text:      #1C1C1E;
+  --color-muted:     #A8A8A0;
+  --font-serif:      'Georgia', serif;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-serif);
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: var(--font-serif);
+}
