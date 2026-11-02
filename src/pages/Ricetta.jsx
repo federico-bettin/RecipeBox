@@ -221,6 +221,7 @@ function TimerBanner({ timer, onClose }) {
   const tickRef  = useRef(null)
 
   const stopAlarm = () => { if (alarmRef.current) { clearInterval(alarmRef.current); alarmRef.current = null } }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- riavvia il countdown quando cambia il timer
   useEffect(() => { setRemaining(timer.seconds); setRunning(true); setSuonato(false); stopAlarm() }, [timer])
   useEffect(() => () => stopAlarm(), [])
 
@@ -241,6 +242,7 @@ function TimerBanner({ timer, onClose }) {
       return r - 1
     }), 1000)
     return () => clearInterval(tickRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- l'intervallo si crea solo all'avvio/stop del timer
   }, [running])
 
   const done = remaining <= 0
@@ -558,7 +560,7 @@ export default function Ricetta() {
     const file = new File([blob], nomeFile, { type: 'application/pdf' })
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: ricetta.titolo }); return } catch (e) { /* utente ha annullato, procedi col download */ }
+      try { await navigator.share({ files: [file], title: ricetta.titolo }); return } catch { /* utente ha annullato, procedi col download */ }
     }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -569,6 +571,7 @@ export default function Ricetta() {
 
   const avviaTimer = passo => {
     getAudioCtx()
+    // eslint-disable-next-line react-hooks/purity -- chiamata solo da un click, non durante il render
     const key = Date.now()
     setActiveTimer({ passo: passo.ordine + 1, seconds: passo.timer_secondi, key, notificaId: null })
     // La notifica push viene programmata in background: il countdown visibile

@@ -1,10 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { CORS, requireUser, nonAutorizzato } from '../_shared/auth.ts'
 
 const PRICE_INPUT_PER_M  = 0.80
 const PRICE_OUTPUT_PER_M = 4.00
@@ -38,8 +35,14 @@ async function saveCost(userId: string, tokensIn: number, tokensOut: number) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
-    const { nomi, user_id } = await req.json()
+    const user = await requireUser(req)
+    if (!user) return nonAutorizzato()
 
+    const { nomi } = await req.json()
+
+    if (Array.isArray(nomi) && nomi.length > 100) {
+      return new Response(JSON.stringify({ error: 'Troppi ingredienti' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
     if (!Array.isArray(nomi) || nomi.length === 0) {
       return new Response(JSON.stringify({ generici: [] }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
@@ -66,7 +69,7 @@ serve(async (req) => {
     const generici = JSON.parse(raw.slice(start, end + 1))
 
     const usage = data.usage || {}
-    if (user_id) await saveCost(user_id, usage.input_tokens || 0, usage.output_tokens || 0)
+    await saveCost(user.id, usage.input_tokens || 0, usage.output_tokens || 0)
 
     // Sicurezza: se la lunghezza non combacia, meglio restituire null per tutti
     // (il frontend userà comunque l'euristica locale come ripiego) piuttosto che

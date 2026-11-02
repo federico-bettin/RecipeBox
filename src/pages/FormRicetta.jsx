@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase'
 import { normalizzaIngrediente } from '../lib/ingredienti'
 
-const SUPABASE_URL = 'https://omyieafskwzcnskokerv.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9teWllYWZza3d6Y25za29rZXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzMxNzUsImV4cCI6MjA5NjY0OTE3NX0.Mj7kLIltASK7rrIJOUOXV5a4D-2HgxqmKhbXb7LVRys'
-
+// Chiama una edge function con il token di sessione dell'utente loggato
+// (non con la chiave anon pubblica): la funzione verifica chi sei.
 async function callEdgeFunction(name, body) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sessione scaduta: accedi di nuovo.')
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${session.access_token}`,
     },
     body: JSON.stringify(body),
   })
@@ -122,6 +124,7 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
   const importFileRef           = useRef()
 
   // Se modoIniziale è camera o file, apri subito il file picker
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- parte solo al primo render */
   useEffect(() => {
     if (modoIniziale === 'camera') {
       setModo('camera')
@@ -131,6 +134,7 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
       setTimeout(() => importFileRef.current?.click(), 100)
     }
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const mappaErroreImportUrl = (msg) => {
     if (!msg) return 'Importazione non riuscita. Riprova.'
@@ -145,8 +149,7 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
     if (!url.trim()) return
     setLoading(true); setErrore('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const data = await callEdgeFunction('import-url', { url: url.trim(), user_id: user?.id })
+      const data = await callEdgeFunction('import-url', { url: url.trim() })
       onImported(data)
     } catch (e) {
       setErrore(mappaErroreImportUrl(e.message))
@@ -168,7 +171,7 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
       // Chiamata Google Vision API via edge function
       const data = await callEdgeFunction('ocr-recipe', { image: base64, mimeType: file.type })
       onImported(data)
-    } catch (e) {
+    } catch {
       setErrore('Impossibile leggere la ricetta. Riprova con un\'immagine più nitida.')
     }
     setLoading(false)
@@ -318,6 +321,7 @@ export default function FormRicetta() {
       })))
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- si ricarica solo al cambio di id
   }, [id])
 
   // Gestione foto
@@ -389,10 +393,10 @@ export default function FormRicetta() {
   // Calcola i nomi "generici" degli ingredienti tramite Claude (per il filtro di
   // ricerca). Se la chiamata fallisce per qualsiasi motivo, non blocca il
   // salvataggio: l'app userà comunque un'euristica locale come ripiego.
-  const calcolaNomiGenerici = async (nomi, userId) => {
+  const calcolaNomiGenerici = async (nomi) => {
     if (!nomi.length) return nomi.map(() => null)
     try {
-      const data = await callEdgeFunction('nome-generico-ingredienti', { nomi, user_id: userId })
+      const data = await callEdgeFunction('nome-generico-ingredienti', { nomi })
       if (Array.isArray(data.generici) && data.generici.length === nomi.length) return data.generici
     } catch (e) {
       console.warn('Calcolo nome generico ingredienti non riuscito:', e)
@@ -485,7 +489,7 @@ export default function FormRicetta() {
     const nomiGenerici = ingredientiValidi.map(i => i.nome_generico || null)
     if (daCalcolare.length) {
       const nomiDaCalcolare = daCalcolare.map(idx => nomiNormalizzati[idx])
-      const calcolati = await calcolaNomiGenerici(nomiDaCalcolare, user.id)
+      const calcolati = await calcolaNomiGenerici(nomiDaCalcolare)
       daCalcolare.forEach((idx, i) => { nomiGenerici[idx] = calcolati[i] || null })
     }
 

@@ -43,12 +43,12 @@ Deno.serve(async (req) => {
 
   // Protezione minima: richiede un segreto condiviso nell'header, così solo il
   // nostro cron esterno può risvegliare questa funzione (evita abusi/spam).
+  // Il segreto è OBBLIGATORIO: se CRON_SECRET non è configurato la funzione
+  // rifiuta tutte le chiamate (così non resta mai aperta a chiunque).
   const cronSecret = Deno.env.get('CRON_SECRET')
-  if (cronSecret) {
-    const provided = req.headers.get('x-cron-secret')
-    if (provided !== cronSecret) {
-      return new Response(JSON.stringify({ error: 'Non autorizzato' }), { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } })
-    }
+  const provided = req.headers.get('x-cron-secret')
+  if (!cronSecret || provided !== cronSecret) {
+    return new Response(JSON.stringify({ error: 'Non autorizzato' }), { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } })
   }
 
   try {

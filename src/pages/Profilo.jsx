@@ -7,7 +7,7 @@ const DIETE = ["Vegano","Vegetariano","Senza glutine","Senza lattosio"]
 
 export default function Profilo() {
   const navigate = useNavigate()
-  const [profile,   setProfile]   = useState(null)
+  const [, setProfile]   = useState(null)
   const [email,     setEmail]     = useState('')
   const [nome,      setNome]      = useState('')
   const [diete,     setDiete]     = useState([])

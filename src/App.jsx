@@ -1,16 +1,16 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy } from 'react'
 import { supabase } from './lib/supabase'
 
-import Home        from './pages/Home.jsx'
-import Archivio    from './pages/Archivio.jsx'
-import Ricetta     from './pages/Ricetta.jsx'
-import FormRicetta from './pages/FormRicetta.jsx'
-import Piano       from './pages/Piano.jsx'
-import Profilo     from './pages/Profilo.jsx'
-import Login       from './pages/Login.jsx'
-import CostiApi    from './pages/CostiApi.jsx'
-import Cestino     from './pages/Cestino.jsx'
+const Home        = lazy(() => import('./pages/Home.jsx'))
+const Archivio    = lazy(() => import('./pages/Archivio.jsx'))
+const Ricetta     = lazy(() => import('./pages/Ricetta.jsx'))
+const FormRicetta = lazy(() => import('./pages/FormRicetta.jsx'))
+const Piano       = lazy(() => import('./pages/Piano.jsx'))
+const Profilo     = lazy(() => import('./pages/Profilo.jsx'))
+const Login       = lazy(() => import('./pages/Login.jsx'))
+const CostiApi    = lazy(() => import('./pages/CostiApi.jsx'))
+const Cestino     = lazy(() => import('./pages/Cestino.jsx'))
 
 function MenuNuova({ onClose }) {
   const navigate = useNavigate()
@@ -56,6 +56,7 @@ export default function App() {
   const [showMenu,   setShowMenu]   = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lettura una tantum dell'URL all'avvio
     if (window.location.hash.includes('type=recovery')) setIsRecovery(true)
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {

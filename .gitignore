@@ -25,3 +25,16 @@ dist-ssr
 
 # Local Netlify folder
 .netlify
+
+# Variabili d'ambiente e segreti (tieni solo .env.example)
+.env
+.env.*
+!.env.example
+
+# File temporanei della CLI Supabase
+supabase/.temp/
+supabase/.branches/
+
+# Chiavi di firma
+*.keystore
+*.jks

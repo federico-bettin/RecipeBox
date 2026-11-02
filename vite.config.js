@@ -7,11 +7,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      // Service worker personalizzato (src/sw.js): cache offline + notifiche push
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Le mie ricette',
         short_name: 'Ricette',
         description: 'La tua app personale di ricette',
+        lang: 'it',
         theme_color: '#1C1C1E',
         background_color: '#FDFAF6',
         display: 'standalone',

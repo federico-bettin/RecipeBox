@@ -1,6 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://omyieafskwzcnskokerv.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9teWllYWZza3d6Y25za29rZXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzMxNzUsImV4cCI6MjA5NjY0OTE3NX0.Mj7kLIltASK7rrIJOUOXV5a4D-2HgxqmKhbXb7LVRys'
+// URL e chiave "anon" arrivano dalle variabili d'ambiente (vedi .env.example).
+// La chiave anon è pensata per stare nel browser: i dati sono protetti dalle
+// policy RLS di Supabase, non dal tenerla nascosta.
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Mancano VITE_SUPABASE_URL e/o VITE_SUPABASE_ANON_KEY. Copia .env.example in .env.local e compilalo.')
+}
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)

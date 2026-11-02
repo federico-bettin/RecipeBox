@@ -1,10 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { CORS, requireUser, nonAutorizzato } from '../_shared/auth.ts'
 
 const PRICE_CLAUDE_INPUT_PER_M  = 0.80
 const PRICE_CLAUDE_OUTPUT_PER_M = 4.00
@@ -88,8 +85,11 @@ async function saveCosts(userId: string, tokensIn: number, tokensOut: number) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
+    const user = await requireUser(req)
+    if (!user) return nonAutorizzato()
+
     const body = await req.json()
-    const { image, mimeType, user_id } = body
+    const { image, mimeType } = body
 
     if (!image) return new Response(
       JSON.stringify({ error: 'Immagine mancante' }),
@@ -110,6 +110,9 @@ serve(async (req) => {
     // Valida che sia base64 valido
     if (!cleanBase64 || cleanBase64.length < 100) {
       throw new Error('Immagine non valida o troppo piccola')
+    }
+    if (cleanBase64.length > 14_000_000) {
+      throw new Error('Immagine troppo grande (max ~10 MB)')
     }
 
     console.log(`OCR request: mimeType=${mimeType}, base64 length=${cleanBase64.length}`)
@@ -141,10 +144,8 @@ serve(async (req) => {
     const ricetta = JSON.parse(rawText.slice(start, end + 1))
 
     // 4. Traccia costi
-    if (user_id) {
-      const usage = claudeData.usage || {}
-      await saveCosts(user_id, usage.input_tokens || 0, usage.output_tokens || 0)
-    }
+    const usage = claudeData.usage || {}
+    await saveCosts(user.id, usage.input_tokens || 0, usage.output_tokens || 0)
 
     return new Response(JSON.stringify(ricetta), {
       headers: { ...CORS, 'Content-Type': 'application/json' },

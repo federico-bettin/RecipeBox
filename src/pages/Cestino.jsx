@@ -32,6 +32,7 @@ export default function Cestino() {
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- caricamento iniziale dei dati
   useEffect(() => { carica() }, [])
 
   const ripristina = async (id) => {

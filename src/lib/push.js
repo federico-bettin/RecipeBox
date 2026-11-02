@@ -74,7 +74,7 @@ export async function assicuraSottoscrizionePush() {
 // Programma una notifica push per un timer che sta partendo ORA, con durata
 // in secondi. Ritorna l'id della riga creata (serve per poterla annullare se
 // il timer viene chiuso/fermato prima della scadenza).
-export async function programmaNotificaTimer({ titolo, corpo, secondi, url }) {
+export async function programmaNotificaTimer({ titolo, corpo, secondi }) {
   const ok = await assicuraSottoscrizionePush()
   if (!ok) return null
 

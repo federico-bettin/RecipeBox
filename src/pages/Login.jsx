@@ -30,6 +30,7 @@ export default function Login() {
   useEffect(() => {
     const hash = window.location.hash
     if (hash && hash.includes('type=recovery')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lettura una tantum dell'URL all'avvio
       setSchermata('nuova_password')
       // Pulisce l'URL senza ricaricare la pagina
       window.history.replaceState(null, '', window.location.pathname)

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formattaUnita } from '../lib/ingredienti'
-import BottomNav from '../components/BottomNav.jsx'
 
 const GIORNI      = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"]
 const GIORNI_FULL = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"]
@@ -35,44 +34,6 @@ const getRangeLabel = (lunedi) => {
   const dom = new Date(lunedi); dom.setDate(dom.getDate() + 6)
   const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic']
   return `${lunedi.getDate()} – ${dom.getDate()} ${mesi[dom.getMonth()]} ${dom.getFullYear()}`
-}
-
-// ─── SCHEDA RICETTA OVERLAY ───────────────────────────────────────────────────
-function SchedaOverlay({ ricetta, ingredienti, giornoLabel, pasto, onClose, onCambia }) {
-  const color = CAT_COLORS[ricetta.categoria] || '#F4A261'
-  return (
-    <div style={{ position:'fixed', inset:0, background:'#FDFAF6', zIndex:400, display:'flex', flexDirection:'column', fontFamily:'Georgia,serif' }}>
-      <div style={{ background:'#1C1C1E', padding:'52px 18px 16px', color:'#FDFAF6', display:'flex', alignItems:'center', gap:12 }}>
-        <button onClick={onClose} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'50%', width:32, height:32, color:'#fff', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>‹</button>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:10, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase' }}>{giornoLabel} · {PASTO_EMOJI[pasto]} {pasto}</div>
-          <div style={{ fontSize:17, fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ricetta.titolo}</div>
-        </div>
-        <button onClick={onCambia} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'6px 12px', color:'#fff', fontSize:11, cursor:'pointer', fontFamily:'Georgia,serif', whiteSpace:'nowrap' }}>✎ Cambia</button>
-      </div>
-      <div style={{ background:`linear-gradient(135deg,${color} 0%,${color}CC 100%)`, height:90, display:'flex', alignItems:'flex-end', padding:'12px 18px' }}>
-        <div style={{ display:'flex', gap:8 }}>
-          {ricetta.tempo_minuti && <span style={{ background:'rgba(0,0,0,0.25)', color:'#fff', borderRadius:20, padding:'4px 12px', fontSize:12 }}>⏱ {ricetta.tempo_minuti} min</span>}
-          {ricetta.categoria    && <span style={{ background:'rgba(0,0,0,0.25)', color:'#fff', borderRadius:20, padding:'4px 12px', fontSize:12 }}>{ricetta.categoria}</span>}
-        </div>
-      </div>
-      <div style={{ flex:1, overflowY:'auto', padding:'16px 18px 90px' }}>
-        <div style={{ fontSize:11, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase', marginBottom:12 }}>Ingredienti</div>
-        {ingredienti.length === 0 && <div style={{ color:'#A8A8A0', fontSize:13 }}>Nessun ingrediente inserito.</div>}
-        {ingredienti.map((ing,i) => (
-          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #F0EBE3' }}>
-            <span style={{ fontSize:14, color:'#1C1C1E' }}>{ing.nome}</span>
-            <span style={{ fontSize:14, fontWeight:'bold', color:'#F4A261' }}>{ing.quantita} {formattaUnita(ing.unita, ing.quantita)}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ position:'fixed', bottom:0, left:0, right:0, background:'#FDFAF6', borderTop:'1px solid #E8E3DC', padding:'12px 18px 28px' }}>
-        <button onClick={onClose} style={{ width:'100%', background:'#1C1C1E', border:'none', borderRadius:14, padding:'14px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#FDFAF6', fontWeight:'bold' }}>
-          Inizia a cucinare →
-        </button>
-      </div>
-    </div>
-  )
 }
 
 // ─── DRAWER MODIFICA SLOT ─────────────────────────────────────────────────────
@@ -438,7 +399,6 @@ export default function Piano() {
   // Overlay states
   const [vista,        setVista]        = useState('settimana')
   const [giornoSel,    setGiornoSel]    = useState('Lun')
-  const [schedaAperta, setSchedaAperta] = useState(null) // { key, giorno, pasto }
   const [drawerMod,    setDrawerMod]    = useState(null) // { key, giorno, pasto }
   const [modaleSpesa,  setModaleSpesa]  = useState(false)
   const [spesaChiavi,   setSpesaChiavi]   = useState(null)
@@ -559,7 +519,6 @@ export default function Piano() {
   const nRicette  = Object.keys(piano).length
   const idxGiorno = GIORNI.indexOf(giornoSel)
   const ricetteList = Object.values(ricetteMap)
-  const ricettaScheda = null // non più usato
 
   return (
     <div style={{ minHeight:'100vh', background:'#FDFAF6', display:'flex', flexDirection:'column', fontFamily:'Georgia,serif' }}>

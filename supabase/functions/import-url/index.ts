@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
+import { CORS, requireUser, nonAutorizzato } from '../_shared/auth.ts'
 const PRICE_INPUT_PER_M = 0.80
 const PRICE_OUTPUT_PER_M = 4.00
 
@@ -197,6 +197,23 @@ async function uploadFoto(fotoUrl: string, userId: string): Promise<string|null>
   } catch(_){return null}
 }
 
+// Evita che la funzione venga usata per leggere risorse interne (SSRF):
+// accetta solo http/https verso host pubblici (niente localhost, IP privati o locali).
+function urlPubblicaValida(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+    const h = u.hostname.toLowerCase()
+    if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal') || h === '[::1]') return false
+    const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
+    if (m) {
+      const [a, b] = [Number(m[1]), Number(m[2])]
+      if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return false
+    }
+    return true
+  } catch (_) { return false }
+}
+
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
 
 async function fetchPage(url: string): Promise<{html:string;ok:boolean;status:number}> {
@@ -230,8 +247,13 @@ async function saveCost(userId: string, tokensIn: number, tokensOut: number) {
 serve(async (req) => {
   if(req.method==='OPTIONS') return new Response('ok',{headers:CORS})
   try {
-    const {url,user_id} = await req.json()
+    const user = await requireUser(req)
+    if(!user) return nonAutorizzato()
+    const user_id = user.id
+
+    const {url} = await req.json()
     if(!url) return new Response(JSON.stringify({error:'URL mancante'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}})
+    if(!urlPubblicaValida(url)) return new Response(JSON.stringify({error:'URL non valido'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}})
 
     const {html,ok,status} = await fetchPage(url)
     if(!ok) {
@@ -271,7 +293,7 @@ serve(async (req) => {
     ricetta.categoria = mapCategoria(ricetta.categoria || '') || mapCategoria(breadcrumb) || 'Primi'
 
     // Foto principale
-    if (fotoUrlEsterna) ricetta.foto_url = await uploadFoto(fotoUrlEsterna, user_id || 'anonymous')
+    if (fotoUrlEsterna) ricetta.foto_url = await uploadFoto(fotoUrlEsterna, user_id)
 
     // Foto dei singoli passi: prova prima dal JSON-LD, poi dall'HTML per pattern comuni.
     if (Array.isArray(ricetta.passi) && ricetta.passi.length) {
@@ -289,7 +311,7 @@ serve(async (req) => {
     }
 
     const usage = cd.usage || {}
-    if (user_id) await saveCost(user_id, usage.input_tokens || 0, usage.output_tokens || 0)
+    await saveCost(user_id, usage.input_tokens || 0, usage.output_tokens || 0)
 
     return new Response(JSON.stringify(ricetta),{headers:{...CORS,'Content-Type':'application/json'}})
   } catch(e) {
