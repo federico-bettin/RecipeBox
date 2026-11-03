@@ -4,6 +4,8 @@
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
+*Created by **Claudia**. Fixed up and published by **Federico**.*
+
 ---
 
 ## What is it?
@@ -222,6 +224,12 @@ docs/           technical guides and screenshots
 ```
 
 The technical guides (functions, secrets, base and personal recipes, deployment) are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). If you find a problem or have an idea, open an *issue* on GitHub.
+
+---
+
+## 💛 Credits
+
+RecipeBox was conceived and created by **Claudia**. **Federico Bettin** fixed it up and published it on GitHub.
 
 ---
 

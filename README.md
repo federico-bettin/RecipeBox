@@ -4,6 +4,8 @@
 
 🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
+*Ideata e creata da **Claudia**. Sistemata e pubblicata da **Federico**.*
+
 ---
 
 ## Cos'è
@@ -222,6 +224,12 @@ docs/           guide tecniche e screenshot
 ```
 
 Le guide tecniche (funzioni, segreti, ricette di base e personali, pubblicazione) sono in [docs/SVILUPPO.md](docs/SVILUPPO.md). Se trovi un problema o hai un'idea, apri una *issue* su GitHub.
+
+---
+
+## 💛 Crediti
+
+RecipeBox è stata ideata e creata da **Claudia**. **Federico Bettin** l'ha sistemata e pubblicata su GitHub.
 
 ---
 
