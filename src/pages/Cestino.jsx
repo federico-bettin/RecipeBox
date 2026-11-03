@@ -23,9 +23,12 @@ export default function Cestino() {
 
   const carica = async () => {
     setLoading(true)
+    // Solo le mie: le ricette di base eliminate dal loro autore non sono nel mio cestino
+    const { data: { user } } = await supabase.auth.getUser()
     const { data } = await supabase
       .from('recipes')
       .select('*')
+      .eq('user_id', user?.id)
       .not('eliminata_il', 'is', null)
       .order('eliminata_il', { ascending: false })
     setRicette(data || [])

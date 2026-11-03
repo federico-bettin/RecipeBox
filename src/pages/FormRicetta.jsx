@@ -2,18 +2,23 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase'
 import { normalizzaIngrediente } from '../lib/ingredienti'
+import { statoAi, leggiChiaveUtente, chiaveValida, spiegaErroreAi } from '../lib/ai'
 
 // Chiama una edge function con il token di sessione dell'utente loggato
 // (non con la chiave anon pubblica): la funzione verifica chi sei.
 async function callEdgeFunction(name, body) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Sessione scaduta: accedi di nuovo.')
+  // Se l'utente ha inserito la propria chiave Anthropic (Profilo), la manda con la
+  // richiesta: la funzione la usa solo per questa chiamata e non la salva.
+  const chiaveUtente = leggiChiaveUtente()
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${session.access_token}`,
+      ...(chiaveValida(chiaveUtente) ? { 'x-anthropic-key': chiaveUtente } : {}),
     },
     body: JSON.stringify(body),
   })
@@ -22,6 +27,35 @@ async function callEdgeFunction(name, body) {
     throw new Error(err.error || `Errore ${res.status}`)
   }
   return res.json()
+}
+
+const leggiBase64 = (file) => new Promise((res, rej) => {
+  const r = new FileReader()
+  r.onload = () => res(String(r.result).split(',')[1])
+  r.onerror = rej
+  r.readAsDataURL(file)
+})
+
+// Prepara foto o PDF per l'importazione. Le foto vengono ridimensionate (lato
+// lungo 1568 px, la misura che Claude legge meglio) e convertite in JPEG: più
+// veloci da inviare e più economiche da leggere.
+async function preparaFile(file) {
+  if (file.type === 'application/pdf') {
+    if (file.size > 10 * 1024 * 1024) throw new Error('FILE_TROPPO_GRANDE')
+    return { base64: await leggiBase64(file), mimeType: 'application/pdf' }
+  }
+  if (!file.type.startsWith('image/')) throw new Error('FORMATO_NON_SUPPORTATO')
+  let bmp
+  try { bmp = await createImageBitmap(file) } catch { throw new Error('FORMATO_NON_SUPPORTATO') }
+  const scala = Math.min(1, 1568 / Math.max(bmp.width, bmp.height))
+  const w = Math.round(bmp.width * scala)
+  const h = Math.round(bmp.height * scala)
+  const canvas = document.createElement('canvas')
+  canvas.width = w; canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h)
+  ctx.drawImage(bmp, 0, 0, w, h)
+  return { base64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], mimeType: 'image/jpeg' }
 }
 
 const INGREDIENTI_COMUNI = [
@@ -123,9 +157,19 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
   const importCameraRef         = useRef()
   const importFileRef           = useRef()
 
-  // Se modoIniziale è camera o file, apri subito il file picker
-  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- parte solo al primo render */
+  const navigate = useNavigate()
+
+  // Stato dell'AI: l'importazione si offre solo se l'utente ha inserito la propria
+  // chiave Anthropic nel Profilo; altrimenti si spiegano le alternative.
+  const [ai, setAi] = useState(null)
   useEffect(() => {
+    statoAi().then(setAi).catch(() => setAi({ haChiave:false, disponibile:false }))
+  }, [])
+
+  // Se modoIniziale è camera o file, apri subito il file picker (solo con l'AI disponibile)
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- parte solo quando lo stato AI è noto */
+  useEffect(() => {
+    if (!ai?.disponibile) return
     if (modoIniziale === 'camera') {
       setModo('camera')
       setTimeout(() => importCameraRef.current?.click(), 100)
@@ -133,11 +177,13 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
       setModo('file')
       setTimeout(() => importFileRef.current?.click(), 100)
     }
-  }, [])
+  }, [ai])
   /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const mappaErroreImportUrl = (msg) => {
     if (!msg) return 'Importazione non riuscita. Riprova.'
+    const spiegazione = spiegaErroreAi(msg)
+    if (spiegazione) return spiegazione
     if (msg.includes('BLOCKED')) return 'Il sito ha bloccato la richiesta (protezione anti-bot). Prova con "Fotografa" o "Importa da file" invece.'
     if (msg.startsWith('HTTP_')) return `Il sito ha risposto con un errore (${msg.replace('HTTP_', '')}). Verifica che il link sia corretto.`
     if (msg.includes('non leggibile')) return 'Non sono riuscito a leggere il contenuto della pagina. Verifica che il link porti davvero a una ricetta.'
@@ -161,18 +207,13 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
     if (!file) return
     setLoading(true); setErrore('')
     try {
-      // Converti immagine in base64
-      const base64 = await new Promise((res, rej) => {
-        const r = new FileReader()
-        r.onload = () => res(r.result.split(',')[1])
-        r.onerror = rej
-        r.readAsDataURL(file)
-      })
-      // Chiamata Google Vision API via edge function
-      const data = await callEdgeFunction('ocr-recipe', { image: base64, mimeType: file.type })
+      // Ridimensiona la foto (o legge il PDF) e la manda alla funzione: Claude la legge direttamente
+      const { base64, mimeType } = await preparaFile(file)
+      const data = await callEdgeFunction('ocr-recipe', { image: base64, mimeType })
       onImported(data)
-    } catch {
-      setErrore('Impossibile leggere la ricetta. Riprova con un\'immagine più nitida.')
+    } catch (e) {
+      const msg = e?.message || ''
+      setErrore(spiegaErroreAi(msg) || (msg.startsWith('Nessuna ricetta') ? msg : 'Impossibile leggere la ricetta. Riprova con un\'immagine più nitida.'))
     }
     setLoading(false)
   }
@@ -190,14 +231,35 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
           <button onClick={onClose} style={{ background:'#EEEAE3', border:'none', borderRadius:'50%', width:28, height:28, fontSize:16, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#888' }}>✕</button>
         </div>
 
-        {!modo ? (
+        {ai === null ? (
+          <div style={{ textAlign:'center', padding:'24px 0', fontSize:28, color:'#A8A8A0' }}>⏳</div>
+        ) : !ai.disponibile ? (
+          /* AI non attiva: spiega cosa si può fare */
+          <div style={{ fontFamily:'Georgia,serif' }}>
+            <div style={{ fontSize:32, textAlign:'center', marginBottom:6 }}>✨</div>
+            <div style={{ fontSize:15, fontWeight:'bold', color:'#1C1C1E', textAlign:'center', marginBottom:10 }}>Importazione con intelligenza artificiale</div>
+            <div style={{ fontSize:13, color:'#555', lineHeight:1.5, marginBottom:14 }}>
+              Importare da link, foto o PDF usa l'intelligenza artificiale (Claude), che ha un costo: lo paghi tu, con la tua chiave Anthropic personale. Hai due strade:
+            </div>
+            <div style={{ background:'#EEEAE3', borderRadius:12, padding:'12px 14px', fontSize:12.5, color:'#1C1C1E', lineHeight:1.5, marginBottom:8 }}>
+              <b>1. Aggiungi la tua chiave Anthropic</b> nel Profilo (la crei su console.anthropic.com): di solito una ricetta costa pochi centesimi.
+            </div>
+            <div style={{ background:'#EEEAE3', borderRadius:12, padding:'12px 14px', fontSize:12.5, color:'#1C1C1E', lineHeight:1.5 }}>
+              <b>2. Scrivi la ricetta a mano.</b> Tutto il resto dell'app (archivio, guida passo passo, timer, piano settimanale, lista della spesa) funziona senza AI.
+            </div>
+            <div style={{ display:'flex', gap:10, marginTop:16 }}>
+              <button onClick={onClose} style={{ flex:1, background:'#EEEAE3', border:'none', borderRadius:14, padding:'13px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#1C1C1E' }}>Compila a mano</button>
+              <button onClick={() => navigate('/profilo')} style={{ flex:1, background:'#1C1C1E', border:'none', borderRadius:14, padding:'13px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#FDFAF6', fontWeight:'bold' }}>Aggiungi la chiave</button>
+            </div>
+          </div>
+        ) : !modo ? (
           /* Selezione modalità */
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <button onClick={() => setModo('url')} style={{ background:'#EEEAE3', border:'none', borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontFamily:'Georgia,serif', textAlign:'left' }}>
               <span style={{ fontSize:22 }}>🔗</span>
               <div>
                 <div style={{ fontSize:14, fontWeight:'bold', color:'#1C1C1E' }}>Da URL</div>
-                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>Incolla il link di una ricetta web</div>
+                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>✨ AI · Incolla il link di una ricetta web</div>
               </div>
             </button>
             <button onClick={() => { setModo('camera'); setTimeout(() => importCameraRef.current?.click(), 100) }}
@@ -205,15 +267,15 @@ function ModalImport({ onClose, onImported, modoIniziale }) {
               <span style={{ fontSize:22 }}>📷</span>
               <div>
                 <div style={{ fontSize:14, fontWeight:'bold', color:'#1C1C1E' }}>Fotocamera</div>
-                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>Scatta una foto alla ricetta</div>
+                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>✨ AI · Scatta una foto alla ricetta</div>
               </div>
             </button>
             <button onClick={() => { setModo('file'); setTimeout(() => importFileRef.current?.click(), 100) }}
               style={{ background:'#EEEAE3', border:'none', borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', fontFamily:'Georgia,serif', textAlign:'left' }}>
               <span style={{ fontSize:22 }}>📄</span>
               <div>
-                <div style={{ fontSize:14, fontWeight:'bold', color:'#1C1C1E' }}>File immagine</div>
-                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>Seleziona foto dalla galleria o dal cloud</div>
+                <div style={{ fontSize:14, fontWeight:'bold', color:'#1C1C1E' }}>Foto o PDF</div>
+                <div style={{ fontSize:11, color:'#888', marginTop:2 }}>✨ AI · Foto o PDF dalla galleria o dal cloud</div>
               </div>
             </button>
           </div>
@@ -303,6 +365,9 @@ export default function FormRicetta() {
     const load = async () => {
       const { data: r } = await supabase.from('recipes').select('*').eq('id', id).single()
       if (!r) return
+      // Si modificano solo le proprie ricette: quelle di base sono in sola lettura
+      const { data: { user: io } } = await supabase.auth.getUser()
+      if (r.user_id !== io?.id) { navigate(`/ricetta/${id}`, { replace: true }); return }
       setTitolo(r.titolo); setCategoria(r.categoria)
       setTempoPrep(r.tempo_preparazione_minuti ? String(r.tempo_preparazione_minuti) : '')
       setTempo(r.tempo_minuti ? String(r.tempo_minuti) : '')
@@ -396,6 +461,9 @@ export default function FormRicetta() {
   const calcolaNomiGenerici = async (nomi) => {
     if (!nomi.length) return nomi.map(() => null)
     try {
+      // Senza AI si usa solo l'euristica locale (nessuna chiamata a pagamento)
+      const { disponibile } = await statoAi()
+      if (!disponibile) return nomi.map(() => null)
       const data = await callEdgeFunction('nome-generico-ingredienti', { nomi })
       if (Array.isArray(data.generici) && data.generici.length === nomi.length) return data.generici
     } catch (e) {
@@ -461,7 +529,7 @@ export default function FormRicetta() {
       utensili: utensili.filter(u => u.trim()).length ? utensili.filter(u => u.trim()) : null,
       porzioni_base: porzioniBase ? parseInt(porzioniBase, 10) : null,
       foto_url: finalFotoUrl || null,
-      is_pubblica: true, fonte_tipo: 'manuale',
+      fonte_tipo: 'manuale',
     }
 
     let recipeId = id

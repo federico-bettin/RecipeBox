@@ -16,10 +16,10 @@ function MenuNuova({ onClose }) {
   const navigate = useNavigate()
 
   const voci = [
-    { emoji:'✏️', label:'Inserimento manuale', sub:'Compila il form a mano',            action: () => { onClose(); navigate('/nuova') } },
-    { emoji:'🔗', label:'Importa da URL',       sub:'Incolla il link di una ricetta web', action: () => { onClose(); navigate('/nuova?import=url') } },
-    { emoji:'📷', label:'Fotografa',            sub:'Scatta una foto alla ricetta',       action: () => { onClose(); navigate('/nuova?import=camera') } },
-    { emoji:'📄', label:'Importa da file',      sub:'Foto, PDF, Word, screenshot…',       action: () => { onClose(); navigate('/nuova?import=file') } },
+    { emoji:'✏️', label:'Inserimento manuale', sub:'Sempre disponibile, senza AI',            action: () => { onClose(); navigate('/nuova') } },
+    { emoji:'🔗', label:'Importa da URL',       sub:'✨ AI · Incolla il link di una ricetta web', action: () => { onClose(); navigate('/nuova?import=url') } },
+    { emoji:'📷', label:'Fotografa',            sub:'✨ AI · Scatta una foto alla ricetta',       action: () => { onClose(); navigate('/nuova?import=camera') } },
+    { emoji:'📄', label:'Importa da file',      sub:'✨ AI · Foto, PDF, screenshot…',       action: () => { onClose(); navigate('/nuova?import=file') } },
   ]
 
   return (

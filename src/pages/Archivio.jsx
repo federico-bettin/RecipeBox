@@ -28,8 +28,10 @@ const tog = (obj, key, val) => {
   return { ...obj, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] }
 }
 
-function applicaFiltri(ricette, search, filtri, ingredientiRicetteMap) {
+function applicaFiltri(ricette, search, filtri, ingredientiRicetteMap, ambito) {
   return ricette.filter(r => {
+    if (ambito === 'mie' && !r.mia) return false
+    if (ambito === 'base' && !r.is_pubblica) return false
     if (search && !r.titolo.toLowerCase().includes(search.toLowerCase())) return false
     if (filtri.categorie?.length && !filtri.categorie.includes(r.categoria)) return false
     if (filtri.difficolta?.length && !filtri.difficolta.includes(r.difficolta)) return false
@@ -81,11 +83,18 @@ export default function Archivio() {
   const [filtriApplicati,      setFiltriApplicati]      = useState(filtriIniziali)
   const [filtriTemp,           setFiltriTemp]           = useState(filtriIniziali)
   const [showFiltri,           setShowFiltri]           = useState(false)
+  // Ambito: tutte le ricette visibili, solo le mie, oppure solo la base (pubbliche)
+  const ambitoParam = urlParams.get('ambito')
+  const [ambito, setAmbito] = useState(['mie', 'base'].includes(ambitoParam) ? ambitoParam : 'tutte')
 
   useEffect(() => {
     const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       const { data: ricette } = await supabase.from('recipes').select('*').is('eliminata_il', null).order('created_at', { ascending: false })
-      setRicette(ricette || [])
+      // "Già provata" è personale (tabella recipe_provate); "mia" = creata da me
+      const { data: prove } = await supabase.from('recipe_provate').select('recipe_id')
+      const provate = new Set((prove || []).map(x => x.recipe_id))
+      setRicette((ricette || []).map(r => ({ ...r, gia_provata: provate.has(r.id), mia: r.user_id === user?.id })))
       const { data: ings } = await supabase.from('ingredients').select('recipe_id, nome, nome_generico')
       if (ings) {
         const map = {}
@@ -108,7 +117,7 @@ export default function Archivio() {
   const applica = () => { setFiltriApplicati(JSON.parse(JSON.stringify(filtriTemp))); setShowFiltri(false) }
   const azzera  = () => setFiltriTemp({})
 
-  const filtrate = applicaFiltri(ricette, search, filtriApplicati, ingredientiMap)
+  const filtrate = applicaFiltri(ricette, search, filtriApplicati, ingredientiMap, ambito)
 
   return (
     <div style={{ minHeight:'100vh', background:'#FDFAF6', display:'flex', flexDirection:'column', fontFamily:'Georgia,serif' }}>
@@ -213,6 +222,15 @@ export default function Archivio() {
             ⚙ Filtri{nFiltri > 0 ? ` (${nFiltri})` : ''}
           </button>
         </div>
+        {/* Ambito: tutte / le mie / base */}
+        <div style={{ display:'flex', gap:8, marginTop:12 }}>
+          {[['tutte', 'Tutte'], ['mie', 'Le mie'], ['base', 'Base']].map(([k, label]) => (
+            <button key={k} onClick={() => setAmbito(k)} style={{
+              background: ambito === k ? '#F4A261' : '#2C2C2E', color: '#fff', border:'none', borderRadius:20,
+              padding:'6px 14px', fontSize:12, cursor:'pointer', fontFamily:'Georgia,serif', fontWeight: ambito === k ? 'bold' : 'normal',
+            }}>{label}</button>
+          ))}
+        </div>
       </div>
 
       {/* Lista */}
@@ -232,6 +250,7 @@ export default function Archivio() {
               <div style={{ textAlign:'center', color:'#AAA', marginTop:40 }}>
                 <div style={{ fontSize:36, marginBottom:10 }}>🔍</div>
                 <div style={{ fontFamily:'Georgia,serif', fontSize:14 }}>Nessuna ricetta trovata</div>
+                {ambito === 'mie' && <div style={{ fontFamily:'Georgia,serif', fontSize:12, marginTop:6 }}>Le ricette che aggiungi tu sono personali: tocca + per scriverne una.</div>}
               </div>
             )}
 
@@ -248,7 +267,7 @@ export default function Archivio() {
                   <div style={{ background: CAT_COLORS[r.categoria] || '#F4A261', width:80, flexShrink:0 }} />
                 )}
                 <div style={{ padding:'12px', flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:11, color:'#A8A8A0', letterSpacing:1, textTransform:'uppercase', marginBottom:3 }}>{r.categoria}</div>
+                  <div style={{ fontSize:11, color:'#A8A8A0', letterSpacing:1, textTransform:'uppercase', marginBottom:3 }}>{r.categoria}{r.is_pubblica ? ' · Base' : ''}</div>
                   <div style={{ fontSize:14, fontWeight:'bold', color:'#1C1C1E', marginBottom:6, display:'flex', alignItems:'flex-start', gap:6 }}>
                     <span style={{ flex:1, lineHeight:1.4 }}>{r.titolo}</span>
                     {r.gia_provata && <span style={{ fontSize:16, flexShrink:0, marginTop:1 }}>👍</span>}

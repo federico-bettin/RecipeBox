@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import BottomNav from '../components/BottomNav.jsx'
+import { statoAi, salvaChiaveUtente, rimuoviChiaveUtente, chiaveValida } from '../lib/ai'
 
 const DIETE = ["Vegano","Vegetariano","Senza glutine","Senza lattosio"]
 
@@ -15,6 +16,9 @@ export default function Profilo() {
   const [saving,    setSaving]    = useState(false)
   const [saved,     setSaved]     = useState(false)
   const [loading,   setLoading]   = useState(true)
+  const [ai,          setAi]          = useState({ haChiave:false, disponibile:false })
+  const [chiaveInput, setChiaveInput] = useState('')
+  const [chiaveMsg,   setChiaveMsg]   = useState(null)   // { ok:boolean, testo:string }
 
   useEffect(() => {
     const load = async () => {
@@ -23,8 +27,9 @@ export default function Profilo() {
       setEmail(user.email)
       const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (p) { setProfile(p); setNome(p.nome || ''); setDiete(p.diete || []) }
-      const { count } = await supabase.from('recipes').select('*', { count:'exact', head:true })
+      const { count } = await supabase.from('recipes').select('*', { count:'exact', head:true }).eq('user_id', user.id)
       setNRicette(count || 0)
+      setAi(await statoAi())
       setLoading(false)
     }
     load()
@@ -36,6 +41,26 @@ export default function Profilo() {
     await supabase.from('profiles').update({ nome: nome.trim(), diete }).eq('id', user.id)
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const salvaChiave = async () => {
+    if (!chiaveValida(chiaveInput)) {
+      setChiaveMsg({ ok:false, testo:'Non sembra una chiave Anthropic: deve iniziare con "sk-ant-".' })
+      return
+    }
+    if (!salvaChiaveUtente(chiaveInput)) {
+      setChiaveMsg({ ok:false, testo:'Il browser non permette di salvare la chiave su questo dispositivo.' })
+      return
+    }
+    setChiaveInput('')
+    setChiaveMsg({ ok:true, testo:'Chiave salvata su questo dispositivo.' })
+    setAi(await statoAi())
+  }
+
+  const rimuoviChiave = async () => {
+    rimuoviChiaveUtente()
+    setChiaveMsg({ ok:true, testo:'Chiave rimossa da questo dispositivo.' })
+    setAi(await statoAi())
   }
 
   const logout = async () => {
@@ -135,13 +160,56 @@ export default function Profilo() {
         {/* Separatore */}
         <div style={{ height:1, background:'#E8E3DC', margin:'20px 0' }} />
 
+        {/* Intelligenza artificiale */}
+        <div style={{ marginBottom:8 }}>
+          <div style={{ fontSize:11, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase', marginBottom:10 }}>✨ Intelligenza artificiale</div>
+          <div style={{ fontSize:12.5, color:'#555', lineHeight:1.5, marginBottom:10 }}>
+            Serve per importare ricette da link, foto e PDF. Tutto il resto dell'app funziona anche senza.
+          </div>
+          <div style={{ background: ai.disponibile ? '#E8F5E8' : '#EEEAE3', borderRadius:12, padding:'11px 14px', fontSize:13, color:'#1C1C1E', marginBottom:12 }}>
+            {ai.haChiave ? '✅ Attiva con la tua chiave personale (le importazioni le paghi tu)'
+              : '⚪ Non attiva: aggiungi la tua chiave per importare ricette'}
+          </div>
+
+          <>
+              <input type="password" autoComplete="off" value={chiaveInput}
+                onChange={e => { setChiaveInput(e.target.value); setChiaveMsg(null) }}
+                placeholder={ai.haChiave ? 'Chiave salvata su questo dispositivo' : 'La tua chiave Anthropic (sk-ant-…)'}
+                style={{ background:'#EEEAE3', border:'none', borderRadius:10, padding:'11px 14px', fontSize:14, fontFamily:'Georgia,serif', color:'#1C1C1E', outline:'none', width:'100%', boxSizing:'border-box', marginBottom:8 }} />
+              {chiaveMsg && (
+                <div style={{ fontSize:12, color: chiaveMsg.ok ? '#2D6A2D' : '#E76F51', marginBottom:8 }}>{chiaveMsg.testo}</div>
+              )}
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={salvaChiave} disabled={!chiaveInput.trim()} style={{
+                  flex:1, background: chiaveInput.trim() ? '#1C1C1E' : '#EEEAE3', color: chiaveInput.trim() ? '#FDFAF6' : '#A8A8A0',
+                  border:'none', borderRadius:12, padding:'12px', fontSize:13, cursor: chiaveInput.trim() ? 'pointer' : 'default', fontFamily:'Georgia,serif', fontWeight:'bold',
+                }}>Salva chiave</button>
+                {ai.haChiave && (
+                  <button onClick={rimuoviChiave} style={{ background:'#FFF0F0', border:'1px solid #FDD', borderRadius:12, padding:'12px 16px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#E76F51' }}>Rimuovi</button>
+                )}
+              </div>
+              <div style={{ fontSize:11.5, color:'#A8A8A0', lineHeight:1.5, marginTop:10 }}>
+                La chiave resta solo su questo dispositivo: non viene salvata nel database e va reinserita su ogni dispositivo. Viene inviata a ogni importazione e usata solo per quella richiesta. Creala su console.anthropic.com e imposta un limite di spesa mensile: importare una ricetta costa di solito pochi centesimi.
+              </div>
+          </>
+        </div>
+
+        {/* Separatore */}
+        <div style={{ height:1, background:'#E8E3DC', margin:'20px 0' }} />
+
         {/* Sezione app */}
         <div style={{ marginBottom:8 }}>
           <div style={{ fontSize:11, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase', marginBottom:12 }}>App</div>
 
-          <button onClick={() => navigate('/archivio')} style={{ width:'100%', background:'#EEEAE3', border:'none', borderRadius:14, padding:'14px 16px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#1C1C1E', textAlign:'left', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+          <button onClick={() => navigate('/archivio?ambito=mie')} style={{ width:'100%', background:'#EEEAE3', border:'none', borderRadius:14, padding:'14px 16px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#1C1C1E', textAlign:'left', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
             <span style={{ fontSize:18 }}>≡</span>
             <span>Le mie ricette</span>
+            <span style={{ marginLeft:'auto', color:'#A8A8A0', fontSize:16 }}>›</span>
+          </button>
+
+          <button onClick={() => navigate('/archivio?ambito=base')} style={{ width:'100%', background:'#EEEAE3', border:'none', borderRadius:14, padding:'14px 16px', fontSize:13, cursor:'pointer', fontFamily:'Georgia,serif', color:'#1C1C1E', textAlign:'left', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+            <span style={{ fontSize:18 }}>📚</span>
+            <span>Ricette di base</span>
             <span style={{ marginLeft:'auto', color:'#A8A8A0', fontSize:16 }}>›</span>
           </button>
 

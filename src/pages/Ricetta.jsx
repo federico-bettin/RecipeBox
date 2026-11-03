@@ -421,6 +421,7 @@ export default function Ricetta() {
   const [confermaElimina, setConfermaElimina] = useState(false)
   const [mostraSpesa, setMostraSpesa] = useState(false)
   const [giaProvata,  setGiaProvata]  = useState(false)
+  const [isMia,       setIsMia]       = useState(false)   // false = ricetta di base di un altro: sola lettura
   const [ingredientiUsati, setIngredientiUsati] = useState({}) // { [ingId]: true } — toggle da tap sul procedimento
 
   // Scaling: se la ricetta ha uova in "pz", si scala per uova; altrimenti per porzioni
@@ -432,12 +433,16 @@ export default function Ricetta() {
       const { data: r }     = await supabase.from('recipes').select('*').eq('id', id).single()
       const { data: ings }  = await supabase.from('ingredients').select('*').eq('recipe_id', id).order('ordine')
       const { data: steps } = await supabase.from('steps').select('*').eq('recipe_id', id).order('ordine')
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsMia(!!r && r.user_id === user?.id)
       setRicetta(r)
       setIngredienti(ings || [])
       setPassi(steps || [])
       setIngredientiUsati({})
       if (r) {
-        setGiaProvata(r.gia_provata || false)
+        // "Già provata" è personale: ognuno segna le sue, anche sulle ricette di base
+        const { data: prova } = await supabase.from('recipe_provate').select('recipe_id').eq('recipe_id', id).eq('user_id', user?.id).maybeSingle()
+        setGiaProvata(!!prova)
         const pb = r.porzioni_base || 4
         setPorzioni(pb)
         // Cerca ingrediente uova/tuorli/albumi senza unità (conteggio a pezzi, es. "2 uova")
@@ -488,7 +493,10 @@ export default function Ricetta() {
   const toggleGiaProvata = async () => {
     const v = !giaProvata
     setGiaProvata(v)
-    await supabase.from('recipes').update({ gia_provata: v }).eq('id', id)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    if (v) await supabase.from('recipe_provate').upsert({ user_id: user.id, recipe_id: id })
+    else await supabase.from('recipe_provate').delete().eq('user_id', user.id).eq('recipe_id', id)
   }
 
   const eliminaRicetta = async () => {
@@ -628,7 +636,7 @@ export default function Ricetta() {
       <div style={{ background:'#1C1C1E', padding:'52px 18px 16px', color:'#FDFAF6', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <button onClick={() => navigate(-1)} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'50%', width:32, height:32, color:'#fff', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>‹</button>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:10, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase' }}>{ricetta.categoria}</div>
+          <div style={{ fontSize:10, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase' }}>{ricetta.categoria}{ricetta.is_pubblica ? ' · Base' : ''}</div>
           <div style={{ fontSize:17, fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ricetta.titolo}</div>
         </div>
         {/* Menu azioni */}
@@ -638,24 +646,28 @@ export default function Ricetta() {
             <>
               <div onClick={() => setMenuAperto(false)} style={{ position:'fixed', inset:0, zIndex:10 }} />
               <div style={{ position:'absolute', top:'110%', right:0, background:'#fff', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', overflow:'hidden', minWidth:160, zIndex:20 }}>
+                {isMia && (
                 <button onClick={() => { setMenuAperto(false); navigate(`/modifica/${id}`) }}
                   style={{ width:'100%', background:'none', border:'none', padding:'13px 16px', fontSize:13, fontFamily:'Georgia,serif', color:'#1C1C1E', cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:10, borderBottom:'1px solid #F0EBE3' }}
                   onMouseEnter={e => e.currentTarget.style.background='#F7F4F0'}
                   onMouseLeave={e => e.currentTarget.style.background='none'}>
                   ✎ Modifica
                 </button>
+                )}
                 <button onClick={() => { setMenuAperto(false); esportaPDF() }}
                   style={{ width:'100%', background:'none', border:'none', padding:'13px 16px', fontSize:13, fontFamily:'Georgia,serif', color:'#1C1C1E', cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:10, borderBottom:'1px solid #F0EBE3' }}
                   onMouseEnter={e => e.currentTarget.style.background='#F7F4F0'}
                   onMouseLeave={e => e.currentTarget.style.background='none'}>
                   📄 Esporta PDF
                 </button>
+                {isMia && (
                 <button onClick={() => { setMenuAperto(false); setConfermaElimina(true) }}
                   style={{ width:'100%', background:'none', border:'none', padding:'13px 16px', fontSize:13, fontFamily:'Georgia,serif', color:'#E76F51', cursor:'pointer', textAlign:'left', display:'flex', alignItems:'center', gap:10 }}
                   onMouseEnter={e => e.currentTarget.style.background='#FFF0F0'}
                   onMouseLeave={e => e.currentTarget.style.background='none'}>
                   🗑 Elimina
                 </button>
+                )}
               </div>
             </>
           )}

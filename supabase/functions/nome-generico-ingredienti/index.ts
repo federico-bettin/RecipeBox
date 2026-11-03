@@ -1,10 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-import { CORS, requireUser, nonAutorizzato } from '../_shared/auth.ts'
-
-const PRICE_INPUT_PER_M  = 0.80
-const PRICE_OUTPUT_PER_M = 4.00
+import { CORS, requireUser, nonAutorizzato, chiaveAnthropicUtente, chiaveMancante, messaggioErroreAnthropic } from '../_shared/auth.ts'
 
 function buildPrompt(nomi: string[]): string {
   return `Per ciascuno di questi nomi di ingredienti di ricette italiane, restituisci il nome "generico" più adatto da usare come filtro di ricerca in un ricettario.
@@ -24,19 +19,15 @@ ${JSON.stringify(nomi)}
 JSON:`
 }
 
-async function saveCost(userId: string, tokensIn: number, tokensOut: number) {
-  try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    const costo = (tokensIn / 1_000_000) * PRICE_INPUT_PER_M + (tokensOut / 1_000_000) * PRICE_OUTPUT_PER_M
-    await supabase.from('api_costs').insert({ user_id: userId, tipo: 'claude', tokens_input: tokensIn, tokens_output: tokensOut, costo_usd: costo })
-  } catch (_) {}
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
     const user = await requireUser(req)
     if (!user) return nonAutorizzato()
+
+    // Ognuno usa la propria chiave Anthropic (header x-anthropic-key): paga chi la possiede.
+    const anthropicKey = chiaveAnthropicUtente(req)
+    if (!anthropicKey) return chiaveMancante()
 
     const { nomi } = await req.json()
 
@@ -47,9 +38,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ generici: [] }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY non configurata')
-
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
@@ -59,7 +47,7 @@ serve(async (req) => {
         messages: [{ role: 'user', content: buildPrompt(nomi) }],
       }),
     })
-    if (!res.ok) throw new Error(`Claude API error: ${await res.text()}`)
+    if (!res.ok) throw new Error(messaggioErroreAnthropic(res.status, await res.text()))
 
     const data = await res.json()
     const raw = data.content?.[0]?.text ?? ''
@@ -68,8 +56,6 @@ serve(async (req) => {
     if (start === -1 || end === -1) throw new Error('Risposta Claude non contiene un array JSON valido')
     const generici = JSON.parse(raw.slice(start, end + 1))
 
-    const usage = data.usage || {}
-    await saveCost(user.id, usage.input_tokens || 0, usage.output_tokens || 0)
 
     // Sicurezza: se la lunghezza non combacia, meglio restituire null per tutti
     // (il frontend userà comunque l'euristica locale come ripiego) piuttosto che

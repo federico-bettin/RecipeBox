@@ -4,7 +4,7 @@ import BottomNav from '../components/BottomNav.jsx'
 
 const PRICE_LABELS = {
   claude: 'Claude Haiku (estrazione)',
-  vision: 'Google Vision (OCR)',
+  vision: 'Google Vision (OCR, storico)',
 }
 
 export default function CostiApi() {
@@ -29,7 +29,7 @@ export default function CostiApi() {
   const totale     = costi.reduce((s, r) => s + (r.costo_usd || 0), 0)
   const totClaude  = costi.filter(r => r.tipo === 'claude').reduce((s, r) => s + (r.costo_usd || 0), 0)
   const totVision  = costi.filter(r => r.tipo === 'vision').reduce((s, r) => s + (r.costo_usd || 0), 0)
-  const nImport    = costi.filter(r => r.tipo === 'vision').length
+  const nChiamate  = costi.filter(r => r.tipo === 'claude').length
 
   const fmt = (v) => v < 0.001 ? '< $0.001' : '$' + v.toFixed(4)
   const fmtData = (iso) => new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
@@ -40,7 +40,10 @@ export default function CostiApi() {
       {/* Header */}
       <div style={{ background:'#1C1C1E', padding:'52px 20px 20px', color:'#FDFAF6', flexShrink:0 }}>
         <div style={{ fontSize:11, letterSpacing:3, color:'#A8A8A0', textTransform:'uppercase', marginBottom:4 }}>Utilizzo</div>
-        <div style={{ fontSize:22, fontWeight:'bold', marginBottom:16 }}>Costi API</div>
+        <div style={{ fontSize:22, fontWeight:'bold', marginBottom:8 }}>Costi API</div>
+        <div style={{ fontSize:11, color:'#A8A8A0', lineHeight:1.5, marginBottom:14 }}>
+          Storico dei costi pagati con la chiave dell'app. Le importazioni con la tua chiave personale non compaiono qui: le trovi nella tua console Anthropic.
+        </div>
 
         {/* Card totale */}
         <div style={{ background:'#2C2C2E', borderRadius:16, padding:'16px' }}>
@@ -50,8 +53,8 @@ export default function CostiApi() {
               <div style={{ fontSize:28, fontWeight:'bold', color:'#F4A261' }}>{fmt(totale)}</div>
             </div>
             <div style={{ textAlign:'right' }}>
-              <div style={{ fontSize:10, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase', marginBottom:4 }}>Importazioni</div>
-              <div style={{ fontSize:28, fontWeight:'bold', color:'#FDFAF6' }}>{nImport}</div>
+              <div style={{ fontSize:10, letterSpacing:2, color:'#A8A8A0', textTransform:'uppercase', marginBottom:4 }}>Chiamate AI</div>
+              <div style={{ fontSize:28, fontWeight:'bold', color:'#FDFAF6' }}>{nChiamate}</div>
             </div>
           </div>
           <div style={{ display:'flex', gap:10 }}>
@@ -59,10 +62,12 @@ export default function CostiApi() {
               <div style={{ fontSize:10, color:'#A8A8A0', marginBottom:3 }}>Claude Haiku</div>
               <div style={{ fontSize:14, fontWeight:'bold', color:'#FDFAF6' }}>{fmt(totClaude)}</div>
             </div>
-            <div style={{ flex:1, background:'rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 12px' }}>
-              <div style={{ fontSize:10, color:'#A8A8A0', marginBottom:3 }}>Google Vision</div>
-              <div style={{ fontSize:14, fontWeight:'bold', color:'#FDFAF6' }}>{fmt(totVision)}</div>
-            </div>
+            {totVision > 0 && (
+              <div style={{ flex:1, background:'rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 12px' }}>
+                <div style={{ fontSize:10, color:'#A8A8A0', marginBottom:3 }}>Google Vision (storico)</div>
+                <div style={{ fontSize:14, fontWeight:'bold', color:'#FDFAF6' }}>{fmt(totVision)}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

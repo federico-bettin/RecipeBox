@@ -1,9 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-import { CORS, requireUser, nonAutorizzato } from '../_shared/auth.ts'
-const PRICE_INPUT_PER_M = 0.80
-const PRICE_OUTPUT_PER_M = 4.00
+import { CORS, requireUser, nonAutorizzato, chiaveAnthropicUtente, chiaveMancante, messaggioErroreAnthropic } from '../_shared/auth.ts'
 
 function extractOgImage(html: string): string | null {
   const m = html.match(/property=["']og:image["'][^>]+content=["']([^"']+)["']/) || html.match(/content=["']([^"']+)["'][^>]+property=["']og:image["']/)
@@ -236,20 +234,16 @@ async function fetchPage(url: string): Promise<{html:string;ok:boolean;status:nu
   return {html:'',ok:false,status:lastStatus}
 }
 
-async function saveCost(userId: string, tokensIn: number, tokensOut: number) {
-  try {
-    const sb = createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    const costo = (tokensIn/1_000_000)*PRICE_INPUT_PER_M+(tokensOut/1_000_000)*PRICE_OUTPUT_PER_M
-    await sb.from('api_costs').insert({user_id:userId,tipo:'claude',tokens_input:tokensIn,tokens_output:tokensOut,costo_usd:costo})
-  } catch(_){}
-}
-
 serve(async (req) => {
   if(req.method==='OPTIONS') return new Response('ok',{headers:CORS})
   try {
     const user = await requireUser(req)
     if(!user) return nonAutorizzato()
     const user_id = user.id
+
+    // Ognuno usa la propria chiave Anthropic (header x-anthropic-key): paga chi la possiede.
+    const anthropicKey = chiaveAnthropicUtente(req)
+    if(!anthropicKey) return chiaveMancante()
 
     const {url} = await req.json()
     if(!url) return new Response(JSON.stringify({error:'URL mancante'}),{status:400,headers:{...CORS,'Content-Type':'application/json'}})
@@ -266,9 +260,6 @@ serve(async (req) => {
     const testo = extractText(html)
     if (testo.length < 50 && !jsonLd) throw new Error('Pagina non leggibile')
 
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY non configurata')
-
     // Claude legge sempre il testo della pagina: i dati strutturati del sito (se
     // presenti) sono solo un suggerimento da verificare, mai la fonte esclusiva.
     const hintJsonLd = buildHintJsonLd(jsonLd)
@@ -280,7 +271,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2500, messages: [{ role: 'user', content: prompt }] }),
     })
-    if (!cr.ok) throw new Error(`Claude API error: ${await cr.text()}`)
+    if (!cr.ok) throw new Error(messaggioErroreAnthropic(cr.status, await cr.text()))
     const cd = await cr.json()
     const rawText = cd.content?.[0]?.text ?? ''
     const start = rawText.indexOf('{')
@@ -310,8 +301,6 @@ serve(async (req) => {
       }
     }
 
-    const usage = cd.usage || {}
-    await saveCost(user_id, usage.input_tokens || 0, usage.output_tokens || 0)
 
     return new Response(JSON.stringify(ricetta),{headers:{...CORS,'Content-Type':'application/json'}})
   } catch(e) {
