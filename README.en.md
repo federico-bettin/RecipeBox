@@ -10,9 +10,32 @@
 
 RecipeBox is an app for your phone (and your computer) that keeps all your recipes in one place. Find the right one in a flash, cook it one step at a time, and when something is missing at home, your shopping list is already waiting for you.
 
-You can install it on your phone like a real app, without going through an app store.
+You can install it on your phone like a real app, without going through an app store. The app itself is in Italian.
 
-> The app itself is in Italian.
+## 👥 Three ways to use RecipeBox
+
+Pick the one that suits you:
+
+```mermaid
+flowchart TD
+    A([What do you want to do?]) --> B{Do you just<br/>want to cook?}
+    B -- Yes --> M1["<b>Way 1</b><br/>Open the site and create an account<br/>1 minute"]
+    B -- No --> C{Do you want to<br/>change the code?}
+    C -- No, I want my own copy --> M2["<b>Way 2</b><br/>Your own copy, with your own database<br/>about 30 minutes"]
+    C -- Yes --> M3["<b>Way 3</b><br/>Download the repo and tinker<br/>for programmers"]
+```
+
+| | **Way 1**<br>Use the site | **Way 2**<br>Have my own copy | **Way 3**<br>Tinker with the code |
+|---|---|---|---|
+| **Who it's for** | Just wants to cook, without thinking about the tech | Wants **their own** recipe collection and **their own** data, independent from the shared site | Wants to understand how it works, change it, make it theirs |
+| **What you do** | Open the link and create an account | Install the app with your own database and put it online | Download the repository, modify it, run it on your computer |
+| **What you need** | A browser or a phone | Free accounts on Supabase and Netlify, plus Node.js and Git | Programming skills (React, Supabase) |
+| **Time** | 1 minute | about 30 minutes | up to you |
+| **Cost** | Free | Free (on the free plans) | Free |
+| **Your recipes** | Personal, on the shared site | In your own database | Wherever you like |
+| **Go to** | [Way 1](#way-1-use-the-site) | [Way 2](#way-2-your-own-copy) | [Way 3](#way-3-tinker-with-the-code) |
+
+The real difference between way 1 and way 2 is **who owns the data**: in way 1 your recipes live in the database of whoever runs the shared site (only you can see them in the app, but that person could technically see them); in way 2 they live in a space that is entirely yours.
 
 ## What can it do?
 
@@ -27,7 +50,7 @@ You can install it on your phone like a real app, without going through an app s
 - 🛒 **Shopping list**: generated from the recipes you picked. Tick items off as you shop, send the list to Bring!, or share it on WhatsApp.
 - 📄 **Share a recipe** as a PDF.
 - 🗑️ **Bin**: a recipe deleted by mistake can be restored within 7 days.
-- 💶 **Keep an eye on costs**: a dedicated page shows how much the AI imports cost.
+- 💶 **Keep an eye on costs**: a dedicated page shows the history of what the AI imports cost.
 
 ## ✨ With and without artificial intelligence
 
@@ -86,9 +109,34 @@ Without a key the import buttons don't show errors: they explain what's needed, 
 
 > The recipe photos in the screenshots belong to their respective authors and are shown only as examples.
 
-## 🚀 Install it and try it
+---
 
-You need three things, all free: [Node.js](https://nodejs.org) (LTS version), [Git](https://git-scm.com) and an account on [Supabase](https://supabase.com), the service that stores recipes and users. It takes about 10 minutes.
+## Way 1: use the site
+
+**For those who just want to cook.** No technical knowledge needed and nothing to install.
+
+1. Open **<https://yourrecipebox.netlify.app>**.
+2. Create your account with an email and password (a confirmation email may arrive).
+3. Done: the base recipes are already there, and you can add your own.
+
+To have it on your phone like a real app:
+
+- **Android (Chrome)**: menu ⋮ → *Install app* (or *Add to Home screen*).
+- **iPhone (Safari)**: Share button → *Add to Home Screen*.
+
+What you can do:
+
+- use all the base recipes;
+- add **your own recipes**: they are personal, only you can see them;
+- import recipes from a link, photo or PDF with artificial intelligence, **if you want**, with your own Anthropic key (see [above](#-with-and-without-artificial-intelligence)). Without it, everything else works the same.
+
+> It's a free service, run by one person and offered as is. Your recipes live in the shared site's database: if you want a space of your own, go to [Way 2](#way-2-your-own-copy).
+
+---
+
+## Way 2: your own copy
+
+**For those who want their own collection and their own data, independent from the shared site.** You don't have to write code: just follow the steps. You need [Node.js](https://nodejs.org) (LTS version), [Git](https://git-scm.com) and two free accounts, on [Supabase](https://supabase.com) (stores recipes and users) and on [Netlify](https://www.netlify.com) (puts the app online). It takes about 30 minutes.
 
 **1. Get the project**
 
@@ -122,21 +170,60 @@ VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-key
 ```
 
-**4. Start the app**
+**4. Try it on your computer**
 
 ```bash
 npm run dev
 ```
 
-Open the address that appears (usually <http://localhost:5173>), sign up and start adding recipes. 🎉
+Open the address that appears (usually <http://localhost:5173>), sign up and add your first recipe. 🎉
 
 > **If sign-up doesn't work:** in Supabase, **Authentication → URL Configuration**, set *Site URL* to `http://localhost:5173`. To try things right away without waiting for the confirmation email, you can turn off *Confirm email* in **Authentication → Sign In / Providers → Email**.
 
-With these steps the archive, search, step-by-step guide, weekly planner and shopping list already work. The extra features (**import from a link or photo**, which each user turns on with their own Anthropic key, and **timer notifications**) require deploying the server functions and a few more steps: you'll find them in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), together with how to publish the site online.
+**5. Put it online, to use it from your phone**
 
-## For tinkerers
+1. Create the version to publish: `npm run build`. This creates the `dist` folder.
+2. On app.netlify.com choose **Add new project → Deploy manually** and drop the `dist` folder in.
+3. Netlify gives you an address (`https://something.netlify.app`). In Supabase, **Authentication → URL Configuration**, set it as the *Site URL* and in the *Redirect URLs*.
 
-RecipeBox is built with React, Vite and Supabase. Advanced setup, functions and deployment are explained in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Now you can open that address on your phone and install the app as in [Way 1](#way-1-use-the-site).
+
+**With these steps** the archive, search, step-by-step guide, weekly planner and shopping list work. The extra features (**import from a link or photo**, which each user turns on with their own Anthropic key, and **timer notifications**) require deploying the server functions and a few more steps: you'll find them in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+---
+
+## Way 3: tinker with the code
+
+**For programmers who want to change, extend or study RecipeBox.** It's built with React, Vite and Supabase.
+
+```bash
+git clone https://github.com/federico-bettin/RecipeBox.git
+cd RecipeBox
+npm install
+cp .env.example .env.local     # then fill in the two values: see Way 2, steps 2 and 3
+npm run dev
+```
+
+Useful commands: `npm run dev` (development), `npm run build` (production build), `npm run lint` (code checks), `npm run preview` (try the production build).
+
+How the project is organized:
+
+```
+src/
+  pages/        the screens (Home, Archive, Recipe, Planner, Profile…)
+  components/   shared components
+  lib/          Supabase, artificial intelligence, notifications, ingredients
+  sw.js         service worker: offline cache and push notifications
+supabase/
+  schema.sql    complete database schema
+  migrations/   schema changes over time
+  functions/    server functions (AI imports, notifications)
+docs/           technical guides and screenshots
+```
+
+The technical guides (functions, secrets, base and personal recipes, deployment) are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). If you find a problem or have an idea, open an *issue* on GitHub.
+
+---
 
 ## License
 
