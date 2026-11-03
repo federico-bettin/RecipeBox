@@ -1,73 +1,65 @@
-# RecipeBox
+# 🍳 RecipeBox
 
-App di ricette di cucina (PWA): salva le tue ricette preferite e cucinale con la guida passo passo, timer inclusi.
+**Il tuo ricettario in tasca: salva le ricette che ti piacciono e cucinale passo passo, anche con le mani infarinate.**
 
-## Funzioni
+🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
-- **Archivio ricette** con categorie (Antipasti, Primi, Secondi, Contorni, Dessert, Cocktail), diete e ricerca per ingrediente
-- **Guida passo passo** con foto dei passaggi e timer di cottura
-- **Notifiche push** quando un timer scade, anche con l'app chiusa
-- **Importa una ricetta** da un link web, da una foto o da un file (estrazione con Claude e OCR con Google Vision)
-- **Piano settimanale** dei pasti e lista della spesa
-- **Cestino** con eliminazione definitiva dopo 7 giorni
-- **Costi API** per utente (token Claude e richieste Vision)
-- **Installabile** come app sul telefono e utilizzabile offline (PWA)
+---
 
-## Tecnologie
+## Cos'è
 
-React 19 + Vite, React Router, Supabase (database, autenticazione, storage, edge function), vite-plugin-pwa / Workbox, Netlify per il deploy.
+RecipeBox è un'app per il telefono (e per il computer) che raccoglie tutte le tue ricette in un unico posto. Trovi al volo quella giusta, la cucini seguendo i passaggi uno alla volta, e quando manca qualcosa in casa la lista della spesa è già pronta.
 
-## Avvio in locale
+Si installa sul telefono come una vera app, senza passare dallo store.
 
-Servono Node.js 20 o superiore e un progetto [Supabase](https://supabase.com).
+## Cosa sa fare
 
-```bash
-npm install
-cp .env.example .env.local    # poi compila i due valori
-npm run dev
-```
+- 📖 **Il tuo archivio di ricette**: antipasti, primi, secondi, contorni, dessert e cocktail, con ricerca e filtri. Con un tocco segni quelle che hai già provato 👍
+- 🥕 **"Per ingrediente"**: scegli gli ingredienti che hai in frigo e vedi subito le ricette che li usano. In ogni ricetta, "Cucina con quello che hai" ti fa spuntare cosa hai già in casa.
+- 👩‍🍳 **Guida passo passo**: ogni passaggio ha la sua foto, e toccando un ingrediente evidenziato lo segni come usato.
+- ⏱️ **Timer di cottura**: parte dal passaggio e ti avvisa con una notifica quando è ora, anche con lo schermo spento.
+- ⚖️ **Porzioni a piacere**: cambi il numero di persone e le quantità si ricalcolano da sole.
+- ✨ **Aggiungi ricette senza fatica**: scrivile a mano, incolla il link di una ricetta trovata sul web, oppure scatta una foto o carica un file. L'intelligenza artificiale legge il testo e prepara la scheda al posto tuo.
+- 🗓️ **Piano settimanale**: colazione, pranzo e cena di ogni giorno, con la possibilità di duplicare la settimana.
+- 🛒 **Lista della spesa**: generata dalle ricette che hai scelto. La spunti mentre fai la spesa, la mandi a Bring! o la condividi su WhatsApp.
+- 📄 **Condividi una ricetta** in PDF.
+- 🗑️ **Cestino**: una ricetta eliminata per sbaglio si recupera entro 7 giorni.
+- 💶 **Occhio ai costi**: una pagina dedicata mostra quanto costano le importazioni con l'intelligenza artificiale.
 
-Altri comandi: `npm run build` (build di produzione), `npm run lint`, `npm run preview`.
+## Un giro nell'app
 
-## Variabili d'ambiente (frontend)
+### Trovare la ricetta giusta
 
-| Variabile | Descrizione |
-|---|---|
-| `VITE_SUPABASE_URL` | URL del progetto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Chiave `anon` (pubblica) del progetto |
+<p align="center">
+  <img src="docs/screenshots/home.png" width="240" alt="Home con le categorie di ricette">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/archivio.png" width="240" alt="Archivio con ricerca e filtri">
+</p>
 
-Su Netlify vanno impostate in *Site configuration → Environment variables*, altrimenti il build non funziona.
+### Cucinare passo passo
 
-## Backend (Supabase)
+<p align="center">
+  <img src="docs/screenshots/ricetta-info.png" width="200" alt="Scheda della ricetta con tempi e difficoltà">
+  &nbsp;
+  <img src="docs/screenshots/ricetta-ingredienti.png" width="200" alt="Ingredienti con le porzioni regolabili">
+  &nbsp;
+  <img src="docs/screenshots/ricetta-procedimento.png" width="200" alt="Procedimento con le foto dei passaggi">
+</p>
 
-**Tabelle usate:** `recipes`, `ingredients`, `steps`, `weekly_plans`, `plan_slots`, `profiles`, `api_costs`, `push_subscriptions`, `timer_notifications`. **Bucket storage:** `recipe-photos`.
+### Organizzare la settimana e fare la spesa
 
-Attiva la **Row Level Security** su tutte le tabelle, con policy che limitano ogni utente ai propri dati (`user_id = auth.uid()`). Lo schema non è ancora versionato in questo repository.
+<p align="center">
+  <img src="docs/screenshots/piano-settimanale.png" width="240" alt="Piano settimanale dei pasti">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/lista-spesa.png" width="240" alt="Lista della spesa con invio a Bring! e WhatsApp">
+</p>
 
-**Edge function** (`supabase/functions/`):
+> Le foto delle ricette negli screenshot appartengono ai rispettivi autori e sono mostrate solo a titolo di esempio.
 
-| Funzione | Cosa fa | Accesso |
-|---|---|---|
-| `import-url` | Legge una pagina web ed estrae la ricetta con Claude | utente loggato |
-| `ocr-recipe` | OCR di una foto (Google Vision) + estrazione con Claude | utente loggato |
-| `nome-generico-ingredienti` | Normalizza i nomi degli ingredienti con Claude | utente loggato |
-| `send-due-notifications` | Invia le push dei timer scaduti e svuota il cestino | cron, con `x-cron-secret` |
+## Per chi vuole smanettare
 
-Le funzioni che consumano crediti verificano il token di sessione dell'utente: la chiave `anon` da sola non basta.
-
-Segreti da impostare (non vanno mai nel repository):
-
-```bash
-supabase secrets set ANTHROPIC_API_KEY=... GOOGLE_VISION_API_KEY=... \
-  VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... CRON_SECRET=... \
-  ALLOWED_ORIGIN=https://il-tuo-sito.netlify.app
-supabase functions deploy import-url ocr-recipe nome-generico-ingredienti send-due-notifications
-```
-
-`ALLOWED_ORIGIN` è facoltativo ma consigliato. `send-due-notifications` va chiamata ogni minuto da un cron esterno (per esempio cron-job.org) con l'header `x-cron-secret`.
-
-La chiave VAPID **pubblica** è anche in `src/lib/push.js` (è pubblica per design); se generi nuove chiavi aggiorna entrambe.
+RecipeBox è fatta con React, Vite e Supabase. Come installarla, configurarla e pubblicarla è spiegato in [docs/SVILUPPO.md](docs/SVILUPPO.md).
 
 ## Licenza
 
-[MIT](LICENSE)
+[MIT](LICENSE): puoi usarla, modificarla e condividerla liberamente.
