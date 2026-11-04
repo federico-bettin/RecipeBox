@@ -43,13 +43,13 @@ La differenza vera tra il modo 1 e il modo 2 è **di chi sono i dati**: nel modo
 
 - 📚 **Ricette di base per tutti, e le tue personali**: l'app parte con una raccolta pronta; le ricette che aggiungi tu le vedi solo tu.
 - 📖 **Il tuo archivio di ricette**: antipasti, primi, secondi, contorni, dessert e cocktail, con ricerca e filtri. Con un tocco segni quelle che hai già provato 👍
-- 🥕 **"Per ingrediente"**: scegli gli ingredienti che hai in frigo e vedi subito le ricette che li usano. In ogni ricetta, "Cucina con quello che hai" ti fa spuntare cosa hai già in casa.
+- 🥕 **"Per ingrediente"**: scegli gli ingredienti che hai in frigo e vedi subito le ricette che li usano. In ogni ricetta, "Cucina con quello che hai" da usare se di un ingrediente hai una quantita' inferiore ma vuoi cucinare lo stesso la ricetta; ricalcola i pesi degli altri ingredienti.
 - 👩‍🍳 **Guida passo passo**: ogni passaggio ha la sua foto, e toccando un ingrediente evidenziato lo segni come usato.
 - ⏱️ **Timer di cottura**: parte dal passaggio e ti avvisa con una notifica quando è ora, anche con lo schermo spento.
 - ⚖️ **Porzioni a piacere**: cambi il numero di persone e le quantità si ricalcolano da sole.
 - ✨ **Aggiungi ricette senza fatica**: scrivile a mano, incolla il link di una ricetta trovata sul web, oppure scatta una foto o carica un file. L'intelligenza artificiale legge il testo e prepara la scheda al posto tuo (vedi [Con e senza intelligenza artificiale](#-con-e-senza-intelligenza-artificiale)).
 - 🗓️ **Piano settimanale**: colazione, pranzo e cena di ogni giorno, con la possibilità di duplicare la settimana.
-- 🛒 **Lista della spesa**: generata dalle ricette che hai scelto. La spunti mentre fai la spesa, la mandi a Bring! o la condividi su WhatsApp.
+- 🛒 **Lista della spesa**: generata dalle ricette che hai scelto. La spunti mentre fai la spesa, la mandi a Bring! (non ancora implementato) o la condividi su WhatsApp.
 - 📄 **Condividi una ricetta** in PDF.
 - 🗑️ **Cestino**: una ricetta eliminata per sbaglio si recupera entro 7 giorni.
 - 💶 **Occhio ai costi**: una pagina dedicata mostra lo storico dei costi delle importazioni con l'intelligenza artificiale.
